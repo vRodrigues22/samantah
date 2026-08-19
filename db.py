@@ -20,6 +20,7 @@ Funciona em dois modos:
 """
 
 import os
+import concurrent.futures
 from typing import Optional
 
 TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "").strip()
@@ -41,43 +42,60 @@ class IntegrityError(Exception):
     """Erro de violação de restrição do banco (ex: email duplicado)."""
 
 
-_turso_client = None
+class DatabaseError(Exception):
+    """Erro ao falar com o banco de dados (ex: timeout ou queda de conexão)."""
+
 
 # O Turso costuma fornecer a URL no formato "libsql://...", que usa uma
-# conexão via WebSocket de longa duração. Preferimos HTTP puro aqui (uma
-# requisição por comando) porque é mais resistente a quedas de conexão em
-# processos que ficam rodando por muito tempo — se uma requisição falhar, a
-# próxima simplesmente abre uma conexão nova, sem precisar reconectar nada
-# manualmente.
+# conexão via WebSocket. Usamos HTTP puro aqui (uma requisição por comando).
 _TURSO_HTTP_URL = TURSO_URL.replace("libsql://", "https://", 1) if TURSO_URL else ""
 
+# Tempo máximo de espera por uma resposta do Turso. Isso é essencial: sem um
+# limite, uma conexão "travada" (ex: uma conexão HTTP reaproveitada que
+# ficou inativa por um tempo e morreu silenciosamente no meio do caminho)
+# ficaria esperando para sempre — e como o servidor roda com apenas um
+# worker, isso trava o site inteiro até o gunicorn matar o processo à força
+# (o que já aconteceu). Com o limite, qualquer travamento vira um erro
+# rápido e claro em vez de deixar o site inacessível por minutos.
+_TURSO_TIMEOUT_SECONDS = 20
+_turso_pool = concurrent.futures.ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="turso"
+)
 
-def _get_turso_client(fresh: bool = False):
-    global _turso_client
-    if fresh and _turso_client is not None:
+
+def _turso_call(sql: str, params):
+    # Abre uma conexão nova a cada chamada e fecha em seguida, em vez de
+    # reaproveitar uma conexão de longa duração — evita justamente o tipo de
+    # conexão "morta" que causou o travamento acima.
+    turso_client = libsql_client.create_client_sync(
+        url=_TURSO_HTTP_URL, auth_token=TURSO_AUTH_TOKEN
+    )
+    try:
+        return turso_client.execute(sql, params)
+    finally:
         try:
-            _turso_client.close()
+            turso_client.close()
         except Exception:
             pass
-        _turso_client = None
-    if _turso_client is None:
-        _turso_client = libsql_client.create_client_sync(
-            url=_TURSO_HTTP_URL, auth_token=TURSO_AUTH_TOKEN
-        )
-    return _turso_client
 
 
 def _turso_execute(sql: str, params):
-    """Roda um comando no Turso, tentando de novo uma vez com conexão nova
-    se a primeira tentativa falhar por um problema de rede/conexão."""
     try:
-        return _get_turso_client().execute(sql, params)
+        future = _turso_pool.submit(_turso_call, sql, params)
+        return future.result(timeout=_TURSO_TIMEOUT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        raise DatabaseError(
+            "O banco de dados demorou demais para responder. Tente de novo "
+            "em instantes."
+        )
     except libsql_client.LibsqlError as exc:
         if "UNIQUE constraint failed" in str(exc):
             raise IntegrityError(str(exc)) from exc
+        raise DatabaseError(str(exc)) from exc
+    except IntegrityError:
         raise
-    except Exception:
-        return _get_turso_client(fresh=True).execute(sql, params)
+    except Exception as exc:
+        raise DatabaseError(str(exc)) from exc
 
 
 def _execute(sql: str, params=None):

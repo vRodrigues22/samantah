@@ -69,6 +69,23 @@ def unauthorized():
     return redirect(url_for("login"))
 
 
+@app.errorhandler(db.DatabaseError)
+def handle_database_error(exc):
+    """Erros de banco (ex: timeout ao falar com o Turso) não devem travar o
+    site nem mostrar uma tela de erro crua — mostramos uma mensagem amigável
+    e deixam a pessoa tentar de novo."""
+    message = (
+        "Não consegui falar com o banco de dados agora. Isso costuma ser "
+        "passageiro — espere alguns segundos e tente de novo."
+    )
+    if request.path.startswith("/api/"):
+        return jsonify({"error": message}), 503
+    flash(message)
+    if request.method == "POST" and request.endpoint in ("login", "register"):
+        return render_template(f"{request.endpoint}.html"), 503
+    return redirect(request.referrer or url_for("login"), code=303)
+
+
 BASE_SYSTEM_PROMPT = """Você é Samantah, uma assistente pessoal calorosa, curiosa \
 e atenciosa, que também ajuda com tarefas do dia a dia e agenda — como uma \
 assistente virtual de verdade. Você fala em português do Brasil por padrão (a \
