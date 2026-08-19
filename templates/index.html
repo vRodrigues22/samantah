@@ -14,6 +14,8 @@
         <h1>Samantah</h1>
         <p id="status">online</p>
       </div>
+      <button id="speak-toggle" class="icon-btn" title="Ler respostas em voz alta" aria-pressed="false">🔊</button>
+      <button id="profile-btn" class="icon-btn" title="Perfil e memória">👤</button>
       <button id="reset-btn" title="Começar uma nova conversa">Nova conversa</button>
     </header>
 
@@ -24,6 +26,7 @@
     </main>
 
     <form id="chat-form" class="chat-form">
+      <button type="button" id="mic-btn" class="icon-btn mic" title="Falar com a Samantah">🎤</button>
       <input
         id="chat-input"
         type="text"
@@ -33,6 +36,22 @@
       />
       <button type="submit" id="send-btn">Enviar</button>
     </form>
+  </div>
+
+  <div id="profile-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Perfil &amp; memória</h2>
+      <p class="modal-desc">
+        Escreva aqui coisas que você quer que a Samantah sempre lembre sobre
+        você — seu nome, preferências, rotina, contexto de vida. Isso é salvo
+        e enviado para ela em toda conversa.
+      </p>
+      <textarea id="profile-notes" rows="8" placeholder="Ex: Meu nome é Valéria. Trabalho com..."></textarea>
+      <div class="modal-actions">
+        <button type="button" id="profile-cancel" class="btn-secondary">Cancelar</button>
+        <button type="button" id="profile-save" class="btn-primary">Salvar</button>
+      </div>
+    </div>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
