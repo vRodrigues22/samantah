@@ -11,6 +11,18 @@ const profileModal = document.getElementById("profile-modal");
 const profileNotes = document.getElementById("profile-notes");
 const profileSave = document.getElementById("profile-save");
 const profileCancel = document.getElementById("profile-cancel");
+const attachBtn = document.getElementById("attach-btn");
+const fileInput = document.getElementById("file-input");
+const fileChip = document.getElementById("file-chip");
+const fileChipName = document.getElementById("file-chip-name");
+const fileChipRemove = document.getElementById("file-chip-remove");
+const tasksBtn = document.getElementById("tasks-btn");
+const tasksModal = document.getElementById("tasks-modal");
+const tasksClose = document.getElementById("tasks-close");
+const taskForm = document.getElementById("task-form");
+const taskTitleInput = document.getElementById("task-title");
+const taskDateInput = document.getElementById("task-date");
+const taskListEl = document.getElementById("task-list");
 
 // ---------- Preferência de "ler em voz alta" (salva no navegador) ----------
 let autoSpeak = localStorage.getItem("samantah_autospeak") === "true";
@@ -91,6 +103,45 @@ if (SpeechRecognitionImpl) {
   micBtn.style.display = "none";
 }
 
+// ---------- Anexar documentos / imagens ----------
+let pendingFile = null; // { uri, mime_type, name }
+
+attachBtn.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files[0];
+  fileInput.value = "";
+  if (!file) return;
+
+  statusEl.textContent = "enviando arquivo...";
+  attachBtn.disabled = true;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok) {
+      addMessage("error", data.error || "Não consegui enviar o arquivo.");
+      return;
+    }
+    pendingFile = { uri: data.uri, mime_type: data.mime_type, name: data.name };
+    fileChipName.textContent = data.name;
+    fileChip.classList.remove("hidden");
+  } catch (err) {
+    addMessage("error", "Não consegui enviar o arquivo.");
+  } finally {
+    statusEl.textContent = "online";
+    attachBtn.disabled = false;
+  }
+});
+
+fileChipRemove.addEventListener("click", () => {
+  pendingFile = null;
+  fileChip.classList.add("hidden");
+});
+
 // ---------- Chat ----------
 function addMessage(role, text, { speakIt } = {}) {
   const wrapper = document.createElement("div");
@@ -114,8 +165,9 @@ function addTyping() {
   return wrapper;
 }
 
-async function sendMessage(text) {
-  addMessage("user", text);
+async function sendMessage(text, file) {
+  const displayText = file ? `📎 ${file.name}${text ? "\n" + text : ""}` : text;
+  addMessage("user", displayText);
   const typingEl = addTyping();
   sendBtn.disabled = true;
   statusEl.textContent = "digitando...";
@@ -124,7 +176,7 @@ async function sendMessage(text) {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, file: file || undefined }),
     });
     const data = await res.json();
     typingEl.remove();
@@ -133,6 +185,7 @@ async function sendMessage(text) {
       addMessage("error", data.error || "Algo deu errado.");
     } else {
       addMessage("assistant", data.reply, { speakIt: true });
+      if (!tasksModal.classList.contains("hidden")) loadTasks();
     }
   } catch (err) {
     typingEl.remove();
@@ -147,9 +200,12 @@ async function sendMessage(text) {
 formEl.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = inputEl.value.trim();
-  if (!text) return;
+  if (!text && !pendingFile) return;
   inputEl.value = "";
-  sendMessage(text);
+  const file = pendingFile;
+  pendingFile = null;
+  fileChip.classList.add("hidden");
+  sendMessage(text, file);
 });
 
 resetBtn.addEventListener("click", async () => {
@@ -214,6 +270,118 @@ profileSave.addEventListener("click", async () => {
   }
 });
 
+// ---------- Tarefas / agenda ----------
+function formatTaskDate(isoDate) {
+  if (!isoDate) return "";
+  const [y, m, d] = isoDate.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function renderTasks(tasks) {
+  taskListEl.innerHTML = "";
+  if (!tasks || tasks.length === 0) {
+    taskListEl.innerHTML = '<li class="task-empty">Nenhuma tarefa por aqui ainda.</li>';
+    return;
+  }
+  for (const task of tasks) {
+    const li = document.createElement("li");
+    li.className = `task-item${task.done ? " done" : ""}`;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = task.done;
+    checkbox.addEventListener("change", () => toggleTask(task.id, checkbox.checked));
+
+    const info = document.createElement("div");
+    info.className = "task-info";
+    const titleEl = document.createElement("span");
+    titleEl.className = "task-title";
+    titleEl.textContent = task.title;
+    info.appendChild(titleEl);
+    if (task.due_date) {
+      const dateEl = document.createElement("span");
+      dateEl.className = "task-date";
+      dateEl.textContent = formatTaskDate(task.due_date);
+      info.appendChild(dateEl);
+    }
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "task-delete";
+    deleteBtn.textContent = "✕";
+    deleteBtn.title = "Remover tarefa";
+    deleteBtn.addEventListener("click", () => deleteTask(task.id));
+
+    li.appendChild(checkbox);
+    li.appendChild(info);
+    li.appendChild(deleteBtn);
+    taskListEl.appendChild(li);
+  }
+}
+
+async function loadTasks() {
+  try {
+    const res = await fetch("/api/tasks");
+    const data = await res.json();
+    renderTasks(data.tasks || []);
+  } catch (err) {
+    taskListEl.innerHTML = '<li class="task-empty">Não consegui carregar as tarefas.</li>';
+  }
+}
+
+async function toggleTask(id, done) {
+  await fetch(`/api/tasks/${id}/toggle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ done }),
+  });
+  loadTasks();
+}
+
+async function deleteTask(id) {
+  await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+  loadTasks();
+}
+
+function openTasksModal() {
+  tasksModal.classList.remove("hidden");
+  tasksModal.setAttribute("aria-hidden", "false");
+  loadTasks();
+}
+
+function closeTasksModal() {
+  tasksModal.classList.add("hidden");
+  tasksModal.setAttribute("aria-hidden", "true");
+}
+
+tasksBtn.addEventListener("click", openTasksModal);
+tasksClose.addEventListener("click", closeTasksModal);
+tasksModal.addEventListener("click", (e) => {
+  if (e.target === tasksModal) closeTasksModal();
+});
+
+taskForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = taskTitleInput.value.trim();
+  if (!title) return;
+  const due_date = taskDateInput.value || "";
+  await fetch("/api/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, due_date }),
+  });
+  taskTitleInput.value = "";
+  taskDateInput.value = "";
+  loadTasks();
+});
+
 // ---------- Inicialização ----------
 loadHistory();
 inputEl.focus();
+
+// Registra o service worker (permite "adicionar à tela inicial" no celular)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/static/sw.js").catch(() => {});
+  });
+}
