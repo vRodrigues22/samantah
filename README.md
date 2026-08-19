@@ -10,9 +10,13 @@ gratuitamente pela API do Gemini (Google AI), memória permanente e voz.
   encontrar a Samantah do jeito que deixou.
 - **Conversa natural** com a Samantah, com personalidade calorosa e conversacional.
 - **Gratuita**: usa a API do Gemini, que tem um nível gratuito sem precisar de
-  cartão de crédito.
-- **Memória permanente**: o histórico de conversa, o "perfil" e as tarefas ficam
-  salvos em um banco SQLite — sobrevivem a reinícios do servidor.
+  cartão de crédito. Em produção, o banco de dados também pode ser 100%
+  gratuito usando o Turso (veja a seção de publicação abaixo).
+- **Memória permanente de verdade**: o histórico de conversa, o "perfil" e as
+  tarefas ficam salvos num banco de dados. Rodando localmente, é um arquivo
+  SQLite; em produção, recomendamos o Turso (banco hospedado, gratuito),
+  para que os dados sobrevivam a deploys e aos períodos em que o servidor
+  "dorme" por inatividade em hospedagens gratuitas.
 - **Perfil / memória de longo prazo**: um painel (ícone 👤) onde você escreve
   informações sobre você (nome, preferências, contexto) que são sempre lembradas
   pela Samantah, sem precisar repetir.
@@ -33,8 +37,9 @@ gratuitamente pela API do Gemini (Google AI), memória permanente e voz.
 - `app.py` — backend em Flask: login/cadastro, serve a página, fala com a API
   do Gemini (incluindo as ferramentas de tarefas e upload de arquivos) e
   gerencia as rotas de chat, histórico, perfil, tarefas e reset.
-- `db.py` — camada de banco de dados (SQLite) para contas, histórico, perfil e
-  tarefas.
+- `db.py` — camada de banco de dados para contas, histórico, perfil e tarefas.
+  Usa SQLite local por padrão, ou o Turso (banco hospedado gratuito) se as
+  variáveis `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` estiverem configuradas.
 - `templates/login.html`, `templates/register.html` — telas de entrar/criar conta.
 - `templates/index.html`, `static/style.css`, `static/script.js` — interface de
   chat, incluindo voz, anexos e os painéis de perfil e tarefas.
@@ -140,41 +145,64 @@ disponíveis em aistudio.google.com).
 - O nível gratuito da API do Gemini tem limites de uso (mensagens por minuto e
   por dia). Se a Samantah parar de responder com um erro de "limite excedido",
   espere um pouco ou considere ativar o faturamento no Google AI Studio.
-- Ao publicar em um serviço de hospedagem gratuito, o banco SQLite pode não ser
-  permanente (veja a seção de publicação abaixo) — para persistência garantida,
-  rode localmente ou use um disco persistente pago no serviço de hospedagem.
+- Se você publicar em um serviço de hospedagem gratuito **sem** configurar o
+  Turso (veja abaixo), o banco fica só no disco do servidor, que costuma ser
+  apagado a cada deploy e a cada vez que o servidor "dorme" por inatividade —
+  ou seja, login e memória se perdem de vez em quando. Configurando o Turso,
+  isso deixa de ser um problema.
 
 ## Publicando a Samantah online (Render)
+
+### 1. Crie um banco de dados gratuito no Turso (recomendado)
+
+Isso garante que login, histórico, perfil e tarefas sobrevivam a deploys e
+aos períodos em que o Render "dorme" por inatividade.
+
+1. Acesse **https://turso.tech**, clique em algo como "Get Started" / "Sign
+   up" e crie uma conta gratuita (dá para entrar com GitHub ou email — não
+   pede cartão de crédito).
+2. No painel, crie um banco de dados novo (ex: botão "Create Database"),
+   escolha um nome (ex: `samantah`) e uma região.
+3. Abra o banco criado e procure a área de conexão ("Connect" / "Connection
+   info"): copie a **Database URL** (começa com `libsql://...`).
+4. Ainda no painel do banco, gere um **token de autenticação** (algo como
+   "Create Token" / "Auth Tokens") e copie o token gerado (uma string longa).
+5. Guarde os dois valores — você vai usá-los como variáveis de ambiente no
+   Render no próximo passo (`TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN`).
+
+Se preferir não usar o Turso, pode pular essa parte — a Samantah funciona do
+mesmo jeito, só que com o risco de perda de dados descrito na seção de
+Limitações.
+
+### 2. Publique no Render
 
 1. Suba os arquivos deste projeto para um repositório no GitHub.
 2. No Render (dashboard.render.com), crie um **Web Service** apontando para
    esse repositório.
    - Build command: `pip install -r requirements.txt`
-   - Start command: `gunicorn app:app`
+   - Start command: `gunicorn app:app --timeout 120`
 3. Nas variáveis de ambiente do serviço (**Environment**), adicione:
    - `GEMINI_API_KEY` — sua chave do Google AI Studio
    - `FLASK_SECRET_KEY` — uma string aleatória própria
    - `FLASK_DEBUG` — `false`
+   - `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` — se você criou o banco no
+     Turso no passo anterior
 4. Espere o deploy terminar e acesse a URL pública gerada pelo Render.
 
-**Nota sobre o banco de dados em produção:** no plano gratuito do Render, o
-disco não é garantido como permanente entre reinícios/deploys — então a
-memória da Samantah pode se perder de vez em quando nesse plano. Para memória
-sempre persistente, é necessário um disco pago (Render Starter+) apontando
-`SAMANTAH_DB_PATH` para dentro dele, ou trocar o SQLite por um banco de dados
-hospedado.
+## Sobre esta atualização (Turso)
 
-## Sobre esta atualização (login)
+Antes desta versão, o banco de dados vivia só no disco do servidor do
+Render, que é apagado com frequência no plano gratuito (a cada deploy e a
+cada vez que o app "dorme" por inatividade) — por isso o login e a memória
+estavam se perdendo sozinhos. Agora, se `TURSO_DATABASE_URL` estiver
+configurada, os dados ficam guardados num banco separado, fora do disco do
+Render, e não são mais afetados por isso.
 
-Antes desta versão, os dados eram identificados por um cookie de navegador
-aleatório. Agora passaram a ser identificados pela sua conta. Isso significa
-que qualquer conversa/tarefa salva antes de existir login não vai aparecer
-depois de criar sua conta — é preciso criar a conta e começar a usar dali
-para frente.
+**Importante:** se você já tinha criado uma conta antes desta atualização,
+ela estava guardada no disco antigo do Render e provavelmente já foi
+apagada — será preciso criar a conta de novo depois de configurar o Turso.
 
 ## Próximos passos possíveis
 
 - Recuperação de senha (por email) e verificação de email no cadastro.
-- Trocar o SQLite por um banco de dados hospedado (Postgres) para garantir
-  persistência total mesmo em hospedagem gratuita.
 - Adicionar um avatar animado ou expressões visuais durante a fala.
