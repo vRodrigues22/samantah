@@ -11,6 +11,7 @@ Samantah também pode gerenciar tarefas/agenda sozinha durante a conversa
 
 import os
 import tempfile
+import time
 from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
@@ -280,6 +281,27 @@ def upload_file():
             file=tmp_path,
             config=types.UploadFileConfig(display_name=filename),
         )
+
+        # Arquivos (principalmente PDFs) podem ficar em "processamento" por
+        # alguns segundos antes de poderem ser lidos. Espera até 60s.
+        waited = 0.0
+        while uploaded.state and uploaded.state.name == "PROCESSING" and waited < 60:
+            time.sleep(2)
+            waited += 2
+            uploaded = client.files.get(name=uploaded.name)
+
+        if uploaded.state and uploaded.state.name == "FAILED":
+            error_msg = getattr(uploaded, "error", None)
+            return jsonify({
+                "error": f"O Gemini não conseguiu processar esse arquivo"
+                         f"{f': {error_msg}' if error_msg else '.'}"
+            }), 502
+
+        if uploaded.state and uploaded.state.name == "PROCESSING":
+            return jsonify({
+                "error": "O arquivo está demorando demais para ser processado. "
+                         "Tente um arquivo menor ou tente de novo em instantes."
+            }), 502
     except Exception as exc:
         return jsonify({"error": f"Erro ao enviar arquivo para o Gemini: {exc}"}), 502
     finally:
