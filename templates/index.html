@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Samantah</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="avatar">S</div>
+      <div class="header-text">
+        <h1>Samantah</h1>
+        <p id="status">online</p>
+      </div>
+      <button id="reset-btn" title="Começar uma nova conversa">Nova conversa</button>
+    </header>
+
+    <main id="chat" class="chat">
+      <div class="message assistant">
+        <div class="bubble">Oi! Eu sou a Samantah. Como você está hoje?</div>
+      </div>
+    </main>
+
+    <form id="chat-form" class="chat-form">
+      <input
+        id="chat-input"
+        type="text"
+        autocomplete="off"
+        placeholder="Escreva uma mensagem..."
+        aria-label="Mensagem"
+      />
+      <button type="submit" id="send-btn">Enviar</button>
+    </form>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
