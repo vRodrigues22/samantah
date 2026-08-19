@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#171a21" />
+<title>Entrar — Samantah</title>
+<link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="avatar auth-avatar">S</div>
+      <h1>Samantah</h1>
+      <p class="modal-desc">Entre na sua conta para continuar.</p>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="auth-flash">
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" class="auth-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autofocus autocomplete="email" />
+
+        <label for="password">Senha</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" />
+
+        <label class="auth-checkbox">
+          <input type="checkbox" name="remember" checked />
+          Continuar conectada neste aparelho
+        </label>
+
+        <button type="submit" class="btn-primary auth-submit">Entrar</button>
+      </form>
+
+      <p class="auth-switch">Ainda não tem conta? <a href="{{ url_for('register') }}">Criar conta</a></p>
+    </div>
+  </div>
+</body>
+</html>

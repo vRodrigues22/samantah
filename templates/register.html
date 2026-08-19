@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#171a21" />
+<title>Criar conta — Samantah</title>
+<link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="avatar auth-avatar">S</div>
+      <h1>Samantah</h1>
+      <p class="modal-desc">Crie sua conta para a Samantah lembrar de você em qualquer aparelho.</p>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="auth-flash">
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" class="auth-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autofocus autocomplete="email" />
+
+        <label for="password">Senha</label>
+        <input type="password" id="password" name="password" required autocomplete="new-password" minlength="6" />
+
+        <label for="confirm">Confirme a senha</label>
+        <input type="password" id="confirm" name="confirm" required autocomplete="new-password" minlength="6" />
+
+        <button type="submit" class="btn-primary auth-submit">Criar conta</button>
+      </form>
+
+      <p class="auth-switch">Já tem conta? <a href="{{ url_for('login') }}">Entrar</a></p>
+    </div>
+  </div>
+</body>
+</html>
