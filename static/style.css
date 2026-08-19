@@ -70,7 +70,6 @@ body {
 }
 
 #reset-btn {
-  margin-left: auto;
   background: transparent;
   color: var(--text-dim);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -83,6 +82,49 @@ body {
 #reset-btn:hover {
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-dim);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+#speak-toggle {
+  margin-left: auto;
+}
+
+#speak-toggle[aria-pressed="true"] {
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+}
+
+#mic-btn.listening {
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  animation: pulse 1.4s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(139, 124, 246, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(139, 124, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 124, 246, 0); }
 }
 
 .chat {
@@ -201,4 +243,86 @@ body {
 .chat::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 999px;
+}
+
+/* Modal de perfil */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 6, 10, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 20;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-card {
+  background: var(--panel);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+}
+
+.modal-card h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.modal-desc {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+#profile-notes {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+#profile-notes:focus {
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-secondary,
+.btn-primary {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
 }
